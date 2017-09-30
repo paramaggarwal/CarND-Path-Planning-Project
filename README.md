@@ -1,6 +1,117 @@
+# Project Diary
+
+The goal of this project was to control the speed and lane of a car given the sensor fusion data of cars around me via the simulator. The steps that I followed for the development were as follows:
+
+1. First, try to make the car go forward at a constant rate of 50mph.
+2. Next, try to go straight at a constant rate of 50mph while using the current lane itself.
+3. Next, I integrated the `spline.h` library into my code, this helped avoid jerks at certain points.
+4. Next, I tried to focus on sensing the car in front of me and slowing down if necessary.
+5. Once this was done, I would set the starting velocity to 0 and then gradually increase it over time.
+6. Now for lane change, I would first attempt changing a lane as soon as there was a car ahead.
+7. Next, to avoid collisions, it would check the presence of a car right beside me on both sides and then safely attempt a lane change.
+
+After this, I was able to safely drive the car for a full **6 miles** and have uploaded the successful to YouTube here: https://youtu.be/kkYmn3iBUew
+
+# Rubic Criteria:
+
+### The code compiles correctly.
+Yes. All warnings were taken care of.
+
+### The car is able to drive at least 4.32 miles without incident..
+Yes, I have uploaded a video to YouTube of the successful run: https://youtu.be/kkYmn3iBUew
+
+### The car drives according to the speed limit.
+The car is always below 49.5mph, lower than the speed limit of 50mph.
+
+### Max Acceleration and Jerk are not Exceeded.
+The car never jerks or accelerates/decelerates too fast. (Thanks to Spline library)
+
+### Car does not have collisions.
+In driving a full 6 miles, the car never collided - it checks for cars to the left and right before attempting a lane change. It also does not does aggressive lane changes, hence won't lane change right in front of a car to the side. Also, it obeys rules and only over takes from the left when possible.
+
+### The car stays in its lane, except for the time between changing lanes.
+The car is sticky to its lane, and does not drive in between lanes
+
+### The car is able to change lanes
+The car changes lanes whenever possible and is completely safe.
+
+### There is a reflection on how to generate paths.
+This follows below:
+
+# Model Documentation
+
+### Generation of the three key future points of the car, this is used by the spline library as reference
+
+```
+vector<double> next_wp0 = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+vector<double> next_wp2 = getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+```
+
+### To fill in the gaps using spline library, we do the following:
+
+```
+// Calculate how to break up spline points so that we travel at our desired
+// reference velocity and avoid jerk violation.
+double target_x = 30.0;
+double target_y = s(target_x);
+double target_dist = sqrt((target_x) * (target_x) + (target_y) * (target_y));
+```
+
+### Finally to fill in the paths points using spline, we do the following:
+
+```
+// Fill up the rest of our path planner after filling it with previous points, here we
+// will always output 50 points.
+for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
+
+    double N = (target_dist/(0.02*ref_vel/2.24)); // 0.5 mph
+    double x_point = x_add_on + (target_x) / N;
+    double y_point = s(x_point);
+
+    x_add_on = x_point;
+
+    double x_ref = x_point;
+    double y_ref = y_point;
+
+    // rotate back to normal after rotating earlier
+    x_point = (x_ref * cos(ref_yaw) - y_ref*sin(ref_yaw));
+    y_point = (x_ref * sin(ref_yaw) + y_ref*cos(ref_yaw));
+
+    x_point += ref_x;
+    y_point += ref_y;
+}
+```
+
+### Finally the logic to change lanes if handled as follows:
+
+```
+if (too_close) {
+    ref_vel -= .224; // 0.5 mph
+
+    if (lane == 0 && !right_too_close) {
+        lane = 1;
+    } else if (lane == 1) {
+        if (!left_too_close) {
+            lane = 0;
+        } else if (!right_too_close) {
+            lane = 2;
+        }
+    } else if (lane == 2 && !left_too_close) {
+        lane = 1;
+    }
+
+} else if (ref_vel < 49.5) {
+    ref_vel += .224;
+}
+```
+
+
+============
+
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
@@ -38,13 +149,13 @@ Here is the data provided from the Simulator to the C++ Program
 #### Previous path data given to the Planner
 
 //Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
+the path has processed since last time.
 
 ["previous_path_x"] The previous list of x points previously given to the simulator
 
 ["previous_path_y"] The previous list of y points previously given to the simulator
 
-#### Previous path's end s and d values 
+#### Previous path's end s and d values
 
 ["end_path_s"] The previous list's last point's frenet s value
 
@@ -52,7 +163,7 @@ the path has processed since last time.
 
 #### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
 
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
+["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates.
 
 ## Details
 
@@ -82,7 +193,7 @@ A really helpful resource for doing this project and creating smooth trajectorie
   * Run either `install-mac.sh` or `install-ubuntu.sh`.
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
-    git clone https://github.com/uWebSockets/uWebSockets 
+    git clone https://github.com/uWebSockets/uWebSockets
     cd uWebSockets
     git checkout e94b6e1
     ```
@@ -137,4 +248,3 @@ still be compilable with cmake and make./
 
 ## How to write a README
 A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
-
